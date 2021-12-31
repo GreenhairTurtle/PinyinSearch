@@ -410,14 +410,9 @@ local data = {
     zuo = "作做坐左座昨佐琢撮柞唑祚捽阼胙嘬怍酢笮葄葃蓙䔘苲莋㸲㝾䞰䎰咗㘀㘴岝岞䝫糳袏鈼㭮稓穝秨筰㛗㑅飵侳繓䋏"
 }
 
-local cclib = {
-    utf8 = {}
-}
-
-local utf8 = cclib.utf8
 
 --获取单个字符长度
-function cclib.GetCharSize(char)
+function Addon.GetCharSize(char)
     if not char then
         return 0
     elseif char > 240 then
@@ -432,23 +427,23 @@ function cclib.GetCharSize(char)
 end
 
 --获取中文字符长度
-function cclib.utf8.len(str)
+function Addon.UTF8Len(str)
     local len = 0
     local currentIndex = 1
     while currentIndex <= #str do
         local char = string.byte(str, currentIndex)
-        currentIndex = currentIndex + cclib.GetCharSize(char)
+        currentIndex = currentIndex + Addon.GetCharSize(char)
         len = len + 1
     end
     return len
 end
 
 --截取中文字符串
-function cclib.utf8.sub(str, startChar, numChars)
+function Addon.UTF8Sub(str, startChar, numChars)
     local startIndex = 1
     while startChar > 1 do
         local char = string.byte(str, startIndex)
-        startIndex = startIndex + cclib.GetCharSize(char)
+        startIndex = startIndex + Addon.GetCharSize(char)
         startChar = startChar - 1
     end
 
@@ -456,7 +451,7 @@ function cclib.utf8.sub(str, startChar, numChars)
 
     while numChars > 0 and currentIndex <= #str do
         local char = string.byte(str, currentIndex)
-        currentIndex = currentIndex + cclib.GetCharSize(char)
+        currentIndex = currentIndex + Addon.GetCharSize(char)
         numChars = numChars - 1
     end
 
@@ -465,43 +460,52 @@ end
 
 local pyTable = {}
 
+local delay = 1
 for k, v in pairs(data) do
-    for i = 1, utf8.len(v) do
-        local char = utf8.sub(v, i, 1)
-        pyTable[char] = pyTable[char] or {}
-        table.insert(pyTable[char], k)
-    end
+    C_Timer.After(delay/5*0.05, function()
+        for i = 1, Addon.UTF8Len(v) do
+            local char = Addon.UTF8Sub(v, i, 1)
+            pyTable[char] = pyTable[char] or {}
+            table.insert(pyTable[char], k)
+        end
+    end)
+    delay = delay + 1
 end
 
-local function combineResults(src, des, flDes, current, flCurrent, index)
+-- Complete
+C_Timer.After(delay/5*0.05 + 1, function()
+    EventRegistry:TriggerEvent("PinyinSearchLib.Complete")
+end)
+
+local function combineResults(src, des, firstLettersDes, current, firstLettersCurrent, index)
     des = des or {}
-    flDes = flDes or {}
+    firstLettersDes = firstLettersDes or {}
     index = index or 1
     current = current or ""
-    flCurrent = flCurrent or ""
+    firstLettersCurrent = firstLettersCurrent or ""
 
     if index > #src then
         table.insert(des, current)
-        table.insert(flDes, flCurrent)
+        table.insert(firstLettersDes, firstLettersCurrent)
         return
-    end 
+    end
 
     for i = 1, #src[index] do
         local result = src[index][i]
-        combineResults(src, des, flDes, current .. result, flCurrent .. string.sub(result, 1, 1), index + 1)
+        combineResults(src, des, firstLettersDes, current .. result, firstLettersCurrent .. string.sub(result, 1, 1), index + 1)
     end
 
-    return des, flDes
+    return des, firstLettersDes
 end
 
 function Addon.Pinyin(chars)
     local results = {}
     chars = string.lower(chars or "")
 
-    local charCount = utf8.len(chars)
+    local charCount = Addon.UTF8Len(chars)
     for i = 1, charCount do
         results[i] = {}
-        local char = utf8.sub(chars, i, 1)
+        local char = Addon.UTF8Sub(chars, i, 1)
         if string.len(char) == 1 then
             table.insert(results[i], char)
         else

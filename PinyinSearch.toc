@@ -5,5 +5,8 @@
 ## Notes: 拼音首字母搜索
 ## DefaultState: enabled
 
+## X-WebSite: https://github.com/GreenhairTurtle/PinyinSearch
+## X-Curse-Project-ID: 561654
+
 Lib.lua
 PinyinSearch.lua
