@@ -4,6 +4,7 @@ ignore:
   - README.md
   - .vscode
   - .gitattributes
+  - .gitignore
 
 manual-changelog:
   filename: changelog.md
