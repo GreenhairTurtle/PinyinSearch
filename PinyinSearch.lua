@@ -233,7 +233,9 @@ local function OnTextChanged(self, userInput)
     if userInput then
         Addon.Task:Start(self, FoundResult)
     else
-        Addon.AutoCompleteFrame:Hide()
+        if not self.displayTextOnTabPressed then
+            Addon.AutoCompleteFrame:Hide()
+        end
     end
 end
 
@@ -249,12 +251,6 @@ local function OnHide(self)
     end
 end
 
-local function OnTabPressed(self)
-    if Addon.AutoCompleteFrame:IsVisible() then
-        Addon.AutoCompleteFrame:ChangeSelectedItem()
-    end
-end
-
 local function OnEnterPressed(self)
     if Addon.AutoCompleteFrame:IsVisible() then
         local value = Addon.AutoCompleteFrame:GetSelectedValue()
@@ -264,10 +260,24 @@ local function OnEnterPressed(self)
     end
 end
 
-function Addon.AttachEditBox(editbox, source)
-    if editbox.Instructions then
-        editbox.Instructions:SetText("支持拼音首字母")
+local function OnTabPressed(self)
+    if Addon.AutoCompleteFrame:IsVisible() then
+        Addon.AutoCompleteFrame:ChangeSelectedItem()
     end
+    if self.displayTextOnTabPressed then
+        OnEnterPressed(self)
+    end
+end
+
+-- @displayTextOnTabPressed 当tab切换时，将选中结果显示在edibox
+function Addon.AttachEditBox(editbox, source,  displayTextOnTabPressed)
+    if editbox.pinyinAttach then return end
+
+    editbox.pinyinAttach = true
+    if editbox.Instructions then
+        editbox.Instructions:SetText("支持拼音搜索")
+    end
+    editbox.displayTextOnTabPressed = displayTextOnTabPressed
     editbox.pinyinSource = source
     editbox:HookScript("OnTextChanged", OnTextChanged)
     editbox:HookScript("OnEscapePressed", OnEscapePressed)
@@ -285,7 +295,6 @@ function Addon:EnableFeature(type)
             feature:Update(...)
         end)
     end
-
     self.AttachEditBox(feature:GetEditBox(), feature)
 end
 
@@ -585,6 +594,91 @@ end
 
 Addon:EnableFeature("Container")
 
+-------------------------------------------------------
+--                   Addons                          --
+-------------------------------------------------------
+
+local addons = {
+    {
+        Name        = "Bagnon",
+        OnEnable    = function()
+            -- hook searchframe
+            local oldSearchFrameNew = Bagnon.SearchFrame.New
+            Bagnon.SearchFrame.New = function(self, parent)
+                local searchFrame = oldSearchFrameNew(self, parent)
+                local parentName = parent:GetName()
+                if parentName and parentName:match("BagnonInventoryFrame") then
+                    Addon.AttachEditBox(searchFrame, Addon["Container"])
+                end
+                return searchFrame
+            end
+
+            -- hook bagframe
+            local oldFrameNew = Bagnon.Frame.New
+            Bagnon.Frame.New = function(self, id)
+                local frame = oldFrameNew(self, id)
+                local frameName = frame:GetName()
+                if frameName and frameName:match("BagnonInventoryFrame") then
+                    frame:HookScript("OnShow", function()
+                        Addon["Container"]:Update()
+                    end)
+                end
+                return frame
+            end
+        end
+    },
+    {
+        Name        = "Combuctor",
+        OnEnable    = function()
+            -- hook bagframe
+            local oldFrameNew = Combuctor.Frame.New
+            Combuctor.Frame.New = function(self, id)
+                local frame = oldFrameNew(self, id)
+                local frameName = frame:GetName()
+                if frameName and frameName:match("CombuctorInventoryFrame") then
+                    Addon.AttachEditBox(frame.searchBox, Addon["Container"])
+                    frame:HookScript("OnShow", function()
+                        Addon["Container"]:Update()
+                    end)
+                end
+                return frame
+            end
+        end
+    },
+    {
+        Name        = "NDui",
+        OnEnable    = function()
+            local oldFunc =  NDui.cargBags.plugins["SearchBar"]
+            NDui.cargBags.plugins["SearchBar"] = function(...)
+                local searchBox = oldFunc(...)
+                if searchBox == NDui_BackpackBag.Search then
+                    Addon.AttachEditBox(searchBox, Addon["Container"], true)
+                    searchBox:HookScript("OnShow", function()
+                        Addon["Container"]:Update()
+                    end)
+                end
+                return searchBox
+            end
+        end
+    }
+}
+
+function Addon:CompactAddons(name)
+    if name then
+        local addon = addons[name]
+        if addon then
+            addon:OnEnable()
+        end
+    else
+        for _, addon in ipairs(addons) do
+            if IsAddOnLoaded(addon.Name) then
+                addon:OnEnable()
+            end
+        end
+    end
+end
+
+Addon:CompactAddons()
 
 -------------------------------------------------------
 --                   Event                           --
@@ -605,6 +699,8 @@ frame:SetScript("OnEvent", function(self, event, param1)
         Addon:EnableFeature("Appearance")
     elseif event == "ADDON_LOADED" and param1 == "Blizzard_GuildBankUI" then
         Addon:EnableFeature("GuildBank")
+    elseif event == "ADDON_LOADED" then
+        Addon:CompactAddons(param1)
     elseif event == "BANKFRAME_OPENED" then
         Addon["Container"]:Update()
     elseif event == "TRANSMOG_COLLECTION_UPDATED" or event == "TRANSMOG_COLLECTION_ITEM_UPDATE" or "TRANSMOG_SEARCH_UPDATED" then
