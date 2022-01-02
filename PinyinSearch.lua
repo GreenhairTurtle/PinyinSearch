@@ -302,7 +302,8 @@ end
 local function Update(self, ...)
     if not Addon.LibLoaded then return end
 
-    if self.GetUpdateInterval and GetTime() - (self.UpdateTime or 0) < self:GetUpdateInterval() then
+    local interval = self:GetUpdateInterval()
+    if interval and GetTime() - (self.UpdateTime or 0) < interval then
         return
     end
 
@@ -503,7 +504,62 @@ function Appearance:GetSrc()
     return self[category]
 end
 
-Appearance.GetUpdateInterval = nil
+function Appearance:GetUpdateInterval() end
+
+-------------------------------------------------------
+--                  TradeSkill                       --
+-------------------------------------------------------
+
+local TradeSkill = createFeature("TradeSkill")
+
+function TradeSkill:UpdateData()
+    local _, _, _, _, _, baseSkillLineID = C_TradeSkillUI.GetTradeSkillLine()
+    if not baseSkillLineID then return end
+
+    local recipes = C_TradeSkillUI.GetAllRecipeIDs()
+    if not recipes then return end
+
+    local src = self[baseSkillLineID]
+    if not src then
+        src = {}
+        src.CompletePinyins = {}
+        src.FirstLetterPinyins = {}
+        self[baseSkillLineID] = src
+    end
+
+    for _, recipeId in ipairs(recipes) do
+        local recipeInfo = C_TradeSkillUI.GetRecipeInfo(recipeId)
+        if recipeInfo then
+            if recipeInfo and not src[recipeInfo.name] then
+                saveData(src, recipeInfo.name)
+            end
+
+            for i = 1, C_TradeSkillUI.GetRecipeNumReagents(recipeId) do
+                local name = C_TradeSkillUI.GetRecipeReagentInfo(recipeId, i)
+                if name and not src[name] then
+                    saveData(src, name)
+                end
+            end
+        end
+    end
+end
+
+function TradeSkill:GetEditBox()
+    return TradeSkillFrame.SearchBox
+end
+
+function TradeSkill:GetHookFuncName()
+    return "OnDataSourceChanged", TradeSkillFrame
+end
+
+function TradeSkill:GetUpdateInterval()
+    return 0.1
+end
+
+function TradeSkill:GetSrc()
+    local _, _, _, _, _, baseSkillLineID = C_TradeSkillUI.GetTradeSkillLine()
+    return self[baseSkillLineID]
+end
 
 -------------------------------------------------------
 --                   GuildBank                       --
@@ -530,13 +586,9 @@ function GuildBank:GetEditBox()
     return GuildItemSearchBox
 end
 
-function GuildBank:GetHookFuncName()
-    return "Update", GuildBankFrame
-end
+function GuildBank:GetHookFuncName() end
 
-function GuildBank:GetUpdateInterval()
-    return 0.2
-end
+function GuildBank:GetUpdateInterval() end
 
 -------------------------------------------------------
 --                   Container                       --
@@ -599,80 +651,83 @@ Addon:EnableFeature("Container")
 -------------------------------------------------------
 
 local addons = {
-    {
-        Name        = "Bagnon",
-        OnEnable    = function()
-            -- hook searchframe
-            local oldSearchFrameNew = Bagnon.SearchFrame.New
-            Bagnon.SearchFrame.New = function(self, parent)
-                local searchFrame = oldSearchFrameNew(self, parent)
-                local parentName = parent:GetName()
-                if parentName and parentName:match("BagnonInventoryFrame") then
-                    Addon.AttachEditBox(searchFrame, Addon["Container"])
-                end
-                return searchFrame
+    Blizzard_Collections                    = function()
+        Addon:EnableFeature("Pet")
+        Addon:EnableFeature("Mount")
+        Addon:EnableFeature("Toy")
+        Addon:EnableFeature("Appearance")
+    end,
+    Blizzard_GuildBankUI                    = function()
+        Addon:EnableFeature("GuildBank")
+    end,
+    Blizzard_TradeSkillUI                   = function()
+        Addon:EnableFeature("TradeSkill")
+    end,
+    Bagnon                                  = function()
+        -- hook searchframe
+        local oldSearchFrameNew = Bagnon.SearchFrame.New
+        Bagnon.SearchFrame.New = function(self, parent)
+            local searchFrame = oldSearchFrameNew(self, parent)
+            local parentName = parent:GetName()
+            if parentName and parentName:match("BagnonInventoryFrame") then
+                Addon.AttachEditBox(searchFrame, Addon["Container"])
             end
+            return searchFrame
+        end
 
-            -- hook bagframe
-            local oldFrameNew = Bagnon.Frame.New
-            Bagnon.Frame.New = function(self, id)
-                local frame = oldFrameNew(self, id)
-                local frameName = frame:GetName()
-                if frameName and frameName:match("BagnonInventoryFrame") then
-                    frame:HookScript("OnShow", function()
-                        Addon["Container"]:Update()
-                    end)
-                end
-                return frame
+        -- hook bagframe
+        local oldFrameNew = Bagnon.Frame.New
+        Bagnon.Frame.New = function(self, id)
+            local frame = oldFrameNew(self, id)
+            local frameName = frame:GetName()
+            if frameName and frameName:match("BagnonInventoryFrame") then
+                frame:HookScript("OnShow", function()
+                    Addon["Container"]:Update()
+                end)
             end
+            return frame
         end
-    },
-    {
-        Name        = "Combuctor",
-        OnEnable    = function()
-            -- hook bagframe
-            local oldFrameNew = Combuctor.Frame.New
-            Combuctor.Frame.New = function(self, id)
-                local frame = oldFrameNew(self, id)
-                local frameName = frame:GetName()
-                if frameName and frameName:match("CombuctorInventoryFrame") then
-                    Addon.AttachEditBox(frame.searchBox, Addon["Container"])
-                    frame:HookScript("OnShow", function()
-                        Addon["Container"]:Update()
-                    end)
-                end
-                return frame
+    end,
+    Combuctor                               = function()
+        -- hook bagframe
+        local oldFrameNew = Combuctor.Frame.New
+        Combuctor.Frame.New = function(self, id)
+            local frame = oldFrameNew(self, id)
+            local frameName = frame:GetName()
+            if frameName and frameName:match("CombuctorInventoryFrame") then
+                Addon.AttachEditBox(frame.searchBox, Addon["Container"])
+                frame:HookScript("OnShow", function()
+                    Addon["Container"]:Update()
+                end)
             end
+            return frame
         end
-    },
-    {
-        Name        = "NDui",
-        OnEnable    = function()
-            local oldFunc =  NDui.cargBags.plugins["SearchBar"]
-            NDui.cargBags.plugins["SearchBar"] = function(...)
-                local searchBox = oldFunc(...)
-                if searchBox == NDui_BackpackBag.Search then
-                    Addon.AttachEditBox(searchBox, Addon["Container"], true)
-                    searchBox:HookScript("OnShow", function()
-                        Addon["Container"]:Update()
-                    end)
-                end
-                return searchBox
+    end,
+    NDui                                    = function()
+        local oldFunc =  NDui.cargBags.plugins["SearchBar"]
+        NDui.cargBags.plugins["SearchBar"] = function(...)
+            local searchBox = oldFunc(...)
+            if searchBox == NDui_BackpackBag.Search then
+                Addon.AttachEditBox(searchBox, Addon["Container"], true)
+                searchBox:HookScript("OnShow", function()
+                    Addon["Container"]:Update()
+                end)
             end
+            return searchBox
         end
-    }
+    end
 }
 
 function Addon:CompactAddons(name)
     if name then
-        local addon = addons[name]
-        if addon then
-            addon:OnEnable()
+        local func = addons[name]
+        if func then
+            func()
         end
     else
-        for _, addon in ipairs(addons) do
-            if IsAddOnLoaded(addon.Name) then
-                addon:OnEnable()
+        for addonName, func in pairs(addons) do
+            if IsAddOnLoaded(addonName) then
+                func()
             end
         end
     end
@@ -692,14 +747,7 @@ frame:RegisterEvent("TRANSMOG_COLLECTION_ITEM_UPDATE")
 frame:RegisterEvent("TRANSMOG_COLLECTION_UPDATED")
 frame:RegisterEvent("TRANSMOG_SEARCH_UPDATED")
 frame:SetScript("OnEvent", function(self, event, param1)
-    if event == "ADDON_LOADED" and param1 == "Blizzard_Collections" then
-        Addon:EnableFeature("Pet")
-        Addon:EnableFeature("Mount")
-        Addon:EnableFeature("Toy")
-        Addon:EnableFeature("Appearance")
-    elseif event == "ADDON_LOADED" and param1 == "Blizzard_GuildBankUI" then
-        Addon:EnableFeature("GuildBank")
-    elseif event == "ADDON_LOADED" then
+    if event == "ADDON_LOADED" then
         Addon:CompactAddons(param1)
     elseif event == "BANKFRAME_OPENED" then
         Addon["Container"]:Update()
