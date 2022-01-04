@@ -269,7 +269,7 @@ local function OnTabPressed(self)
     end
 end
 
--- @displayTextOnTabPressed 当tab切换时，将选中结果显示在edibox
+-- @displayTextOnTabPressed 当tab切换时，将选中结果显示在editbox
 function Addon.AttachEditBox(editbox, source,  displayTextOnTabPressed)
     if editbox.pinyinAttach then return end
 
