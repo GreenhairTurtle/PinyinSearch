@@ -147,7 +147,7 @@ local function FoundResult()
 
     local text = editbox:GetText()
     local results = {}
-    if text and strlen(text) >= 2 then
+    if text and strlen(text) >= 2 and not Addon.IsAllChinese(text) then
         local complePinyins, firstLetterPinyins = Addon.Pinyin(text)
 
         if #complePinyins > 0 then

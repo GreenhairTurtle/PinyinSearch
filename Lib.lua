@@ -458,6 +458,20 @@ function Addon.UTF8Sub(str, startChar, numChars)
     return string.sub(str, startIndex, currentIndex - 1)
 end
 
+-- 是否都为中文
+function Addon.IsAllChinese(str)
+    local currentIndex = 1
+    while currentIndex <= #str do
+        local char = string.byte(str, currentIndex)
+        local charSize = Addon.GetCharSize(char)
+        if charSize < 3 then
+            return false
+        end
+        currentIndex = currentIndex + charSize
+    end
+    return true
+end
+
 local pyTable = {}
 
 local delay = 1
