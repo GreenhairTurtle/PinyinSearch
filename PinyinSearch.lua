@@ -430,8 +430,9 @@ function Appearance:UpdateData()
     -- 外观：物品
     if WardrobeCollectionFrame.activeFrame == WardrobeCollectionFrame.ItemsCollectionFrame then
         local category = category or WardrobeCollectionFrame.ItemsCollectionFrame.activeCategory
-        if not category then return end
-
+        local transmogLocation = WardrobeCollectionFrame.ItemsCollectionFrame.transmogLocation
+        if not category or not transmogLocation then return end
+        
         local src = self[category]
         if not src then
             src = {}
@@ -440,10 +441,10 @@ function Appearance:UpdateData()
             self[category] = src
         end
 
-        local visualsList = C_TransmogCollection.GetCategoryAppearances(category)
+        local visualsList = C_TransmogCollection.GetCategoryAppearances(category, transmogLocation)
         for _, visualInfo in ipairs(visualsList) do
             if visualInfo.visualID then
-                local sources = C_TransmogCollection.GetAppearanceSources(visualInfo.visualID, category)
+                local sources = C_TransmogCollection.GetAppearanceSources(visualInfo.visualID, category, transmogLocation)
                 for _, source in ipairs(sources) do
                     if source.name and not src[source.name] then
                         saveData(src, source.name)

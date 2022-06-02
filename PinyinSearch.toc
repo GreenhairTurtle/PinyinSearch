@@ -1,4 +1,4 @@
-## Interface: 90105
+## Interface: 90205
 ## Author: 绿毛龟12138
 ## Version: @project-version@
 ## Title: 拼音搜索
